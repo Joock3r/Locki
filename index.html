@@ -1,0 +1,973 @@
+<!DOCTYPE html>
+<html lang="he" dir="rtl">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+
+<!-- ===================== PWA META TAGS ===================== -->
+<meta name="theme-color" content="#2F5D62">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="Locki">
+<link rel="manifest" href="manifest.json">
+<link rel="icon" type="image/png" sizes="32x32" href="favicon-32.png">
+<link rel="apple-touch-icon" href="apple-touch-icon.png">
+
+<title>Locki — מנהל סיסמאות אישי</title>
+
+<script src="https://accounts.google.com/gsi/client" async defer></script>
+
+<style>
+/* ============================================================
+   DESIGN TOKENS
+   פלטת "כספת": טיילים חמים-קרים, מבטא אחד בטורקיז-כהה,
+   Heebo לטקסט, Space Mono לשדות סודיים (סיסמאות/שמות משתמש)
+   ============================================================ */
+:root{
+  --bg:            #F5F6F8;
+  --surface:       #FFFFFF;
+  --surface-2:     #EEF1F3;
+  --border:        #E4E7EC;
+  --text:          #1E2433;
+  --text-dim:      #6B7280;
+  --accent:        #2F5D62;
+  --accent-dark:   #234548;
+  --accent-tint:   #E4EEEE;
+  --danger:        #B5423D;
+  --danger-tint:   #F7E7E5;
+  --success:       #3F7A5C;
+  --shadow:        0 1px 2px rgba(30,36,51,.04), 0 6px 20px rgba(30,36,51,.06);
+  --radius:        14px;
+  --radius-sm:     10px;
+  --font-ui:       'Heebo', -apple-system, sans-serif;
+  --font-mono:     'Space Mono', monospace;
+}
+[data-theme="dark"]{
+  --bg:            #14171C;
+  --surface:       #1C2027;
+  --surface-2:     #242932;
+  --border:        #2E333C;
+  --text:          #EDEFF2;
+  --text-dim:      #8A909C;
+  --accent:        #4C8A8F;
+  --accent-dark:   #3A6B6F;
+  --accent-tint:   #1E2C2D;
+  --danger:        #D97169;
+  --danger-tint:   #2E1F1E;
+  --success:       #5FA47F;
+  --shadow:        0 1px 2px rgba(0,0,0,.3), 0 8px 24px rgba(0,0,0,.35);
+}
+
+@font-face{
+  font-family:'Heebo';
+  src: local('Heebo');
+}
+
+*{ box-sizing:border-box; }
+html,body{ margin:0; padding:0; }
+body{
+  background:var(--bg);
+  color:var(--text);
+  font-family:var(--font-ui);
+  min-height:100vh;
+  -webkit-font-smoothing:antialiased;
+  transition:background .2s ease, color .2s ease;
+}
+@import url('https://fonts.googleapis.com/css2?family=Heebo:wght@400;500;600;700&family=Space+Mono:wght@400;700&display=swap');
+
+button{ font-family:inherit; border:none; cursor:pointer; background:none; color:inherit; }
+input{ font-family:inherit; }
+:focus-visible{ outline:2px solid var(--accent); outline-offset:2px; }
+
+.screen{ min-height:100vh; display:flex; align-items:center; justify-content:center; padding:24px; }
+.hidden{ display:none !important; }
+
+/* ---------- Auth / lock screens ---------- */
+.auth-card{
+  width:100%; max-width:380px;
+  background:var(--surface);
+  border:1px solid var(--border);
+  border-radius:var(--radius);
+  box-shadow:var(--shadow);
+  padding:36px 28px;
+  text-align:center;
+}
+.auth-mark{
+  width:52px; height:52px; margin:0 auto 18px;
+  border-radius:14px;
+  background:var(--accent-tint);
+  display:flex; align-items:center; justify-content:center;
+}
+.auth-mark svg{ width:26px; height:26px; stroke:var(--accent); }
+.auth-mark img{ width:30px; height:30px; }
+.hero-logo{ width:120px; height:120px; margin:0 auto 14px; display:block; }
+.auth-card h1{ font-size:20px; font-weight:700; margin:0 0 6px; }
+.auth-card p.sub{ color:var(--text-dim); font-size:14px; margin:0 0 24px; line-height:1.6; }
+#google-signin-btn{ display:flex; justify-content:center; margin:0 auto; }
+
+.denied{ color:var(--danger); font-size:14px; margin-top:16px; display:none; }
+.denied.show{ display:block; }
+
+.pin-dots{ display:flex; justify-content:center; gap:12px; margin:22px 0; direction:ltr; }
+.pin-dot{
+  width:14px; height:14px; border-radius:50%;
+  border:2px solid var(--border);
+  background:transparent;
+  transition:all .15s ease;
+}
+.pin-dot.filled{ background:var(--accent); border-color:var(--accent); }
+.pin-dot.err{ border-color:var(--danger); background:var(--danger); }
+
+.pin-pad{
+  display:grid; grid-template-columns:repeat(3,1fr); gap:10px;
+  max-width:260px; margin:0 auto;
+}
+.pin-key{
+  aspect-ratio:1; border-radius:50%;
+  background:var(--surface-2);
+  font-size:20px; font-weight:600; font-family:var(--font-mono);
+  display:flex; align-items:center; justify-content:center;
+  transition:background .1s ease;
+}
+.pin-key:active{ background:var(--accent-tint); }
+.pin-key.wide{ background:none; font-size:14px; color:var(--text-dim); font-family:var(--font-ui); }
+
+.pin-hint{ font-size:12px; color:var(--text-dim); margin-top:14px; }
+.pin-forgot{ font-size:12px; color:var(--danger); margin-top:6px; text-decoration:underline; }
+
+/* ---------- Main app ---------- */
+#app{ display:none; min-height:100vh; flex-direction:column; }
+#app.active{ display:flex; }
+
+.topbar{
+  position:sticky; top:0; z-index:5;
+  background:var(--bg);
+  padding:18px 18px 10px;
+  border-bottom:1px solid transparent;
+}
+.topbar-row{ display:flex; align-items:center; justify-content:space-between; gap:10px; margin-bottom:14px; }
+.brand{ display:flex; align-items:center; gap:10px; }
+.brand-mark{
+  width:34px; height:34px; border-radius:10px;
+  display:flex; align-items:center; justify-content:center; overflow:hidden;
+}
+.brand-mark img{ width:100%; height:100%; object-fit:cover; }
+.brand h2{ font-size:16px; margin:0; font-weight:700; }
+.brand span{ font-size:11px; color:var(--text-dim); display:block; }
+
+.icon-btn{
+  width:36px; height:36px; border-radius:10px;
+  display:flex; align-items:center; justify-content:center;
+  color:var(--text-dim);
+  background:var(--surface);
+  border:1px solid var(--border);
+}
+.icon-btn:hover{ color:var(--text); }
+.icon-btn svg{ width:17px; height:17px; }
+
+.actions-row{ display:flex; gap:8px; }
+
+.search-wrap{ position:relative; }
+.search-wrap svg{
+  position:absolute; inset-inline-start:14px; top:50%; transform:translateY(-50%);
+  width:16px; height:16px; stroke:var(--text-dim); pointer-events:none;
+}
+#search{
+  width:100%; padding:11px 14px 11px 14px; padding-inline-start:40px;
+  border-radius:var(--radius-sm); border:1px solid var(--border);
+  background:var(--surface); color:var(--text); font-size:14px;
+}
+#search::placeholder{ color:var(--text-dim); }
+
+.add-fab{
+  display:flex; align-items:center; gap:6px;
+  background:var(--accent); color:#fff;
+  padding:11px 16px; border-radius:var(--radius-sm);
+  font-size:14px; font-weight:600; white-space:nowrap;
+}
+.add-fab svg{ width:16px; height:16px; stroke:#fff; }
+.add-fab:hover{ background:var(--accent-dark); }
+
+.list-wrap{ flex:1; padding:6px 18px 100px; max-width:640px; width:100%; margin:0 auto; }
+
+.empty-state{ text-align:center; padding:60px 20px; color:var(--text-dim); }
+.empty-state svg{ width:40px; height:40px; stroke:var(--border); margin-bottom:12px; }
+.empty-state p{ font-size:14px; margin:0; }
+
+.card{
+  background:var(--surface); border:1px solid var(--border);
+  border-radius:var(--radius); padding:16px;
+  margin-bottom:10px; box-shadow:var(--shadow);
+}
+.card-top{ display:flex; align-items:flex-start; justify-content:space-between; gap:10px; }
+.card-service{ font-size:15px; font-weight:700; }
+.card-cat{
+  font-size:11px; color:var(--accent); background:var(--accent-tint);
+  padding:2px 9px; border-radius:20px; margin-inline-start:8px; font-weight:600;
+}
+.card-menu{ display:flex; gap:4px; }
+.card-menu .icon-btn{ width:30px; height:30px; border-color:transparent; background:transparent; }
+.card-menu .icon-btn svg{ width:16px; height:16px; }
+
+.field-row{ display:flex; align-items:center; justify-content:space-between; margin-top:10px; gap:8px; }
+.field-label{ font-size:11px; color:var(--text-dim); width:64px; flex-shrink:0; }
+.field-value{
+  flex:1; font-family:var(--font-mono); font-size:13.5px;
+  background:var(--surface-2); border-radius:8px; padding:8px 10px;
+  overflow:hidden; text-overflow:ellipsis; white-space:nowrap; direction:ltr; text-align:right;
+  cursor:pointer; user-select:none; -webkit-user-select:none;
+}
+.field-value.pw{ letter-spacing:1px; }
+.field-value:hover{ background:var(--accent-tint); }
+.eye-btn{ width:30px; height:30px; flex-shrink:0; color:var(--text-dim); }
+.eye-btn svg{ width:16px; height:16px; }
+.card-notes{ font-size:12px; color:var(--text-dim); margin-top:10px; line-height:1.5; }
+
+/* ---------- Modal (add/edit) ---------- */
+.modal-overlay{
+  position:fixed; inset:0; background:rgba(20,23,28,.45);
+  display:flex; align-items:flex-end; justify-content:center; z-index:20;
+  opacity:0; pointer-events:none; transition:opacity .15s ease;
+}
+.modal-overlay.show{ opacity:1; pointer-events:auto; }
+@media (min-width:560px){ .modal-overlay{ align-items:center; } }
+
+.modal{
+  background:var(--surface); width:100%; max-width:440px;
+  border-radius:20px 20px 0 0; padding:24px 22px 28px; max-height:88vh; overflow-y:auto;
+  transform:translateY(20px); transition:transform .15s ease;
+}
+.modal-overlay.show .modal{ transform:translateY(0); }
+@media (min-width:560px){ .modal{ border-radius:var(--radius); } }
+
+.modal h3{ margin:0 0 18px; font-size:17px; font-weight:700; }
+.form-group{ margin-bottom:14px; }
+.form-group label{ display:block; font-size:12px; color:var(--text-dim); margin-bottom:6px; font-weight:600; }
+.form-group input, .form-group textarea{
+  width:100%; padding:11px 13px; border-radius:var(--radius-sm);
+  border:1px solid var(--border); background:var(--surface); color:var(--text);
+  font-size:14px;
+}
+.form-group textarea{ resize:vertical; min-height:56px; font-family:var(--font-ui); }
+.pw-input-wrap{ position:relative; }
+.pw-input-wrap input{ padding-inline-end:42px; font-family:var(--font-mono); direction:ltr; text-align:right; }
+.pw-toggle-inline{ position:absolute; inset-inline-end:8px; top:50%; transform:translateY(-50%); color:var(--text-dim); }
+.pw-toggle-inline svg{ width:17px; height:17px; }
+
+.modal-actions{ display:flex; gap:10px; margin-top:20px; }
+.btn{
+  flex:1; padding:12px; border-radius:var(--radius-sm);
+  font-size:14px; font-weight:600; text-align:center;
+}
+.btn-primary{ background:var(--accent); color:#fff; }
+.btn-primary:hover{ background:var(--accent-dark); }
+.btn-ghost{ background:var(--surface-2); color:var(--text); }
+.btn-danger-ghost{ background:var(--danger-tint); color:var(--danger); }
+
+/* ---------- Toast ---------- */
+#toast{
+  position:fixed; bottom:26px; left:50%; transform:translateX(-50%) translateY(20px);
+  background:var(--text); color:var(--bg);
+  padding:11px 20px; border-radius:30px; font-size:13.5px; font-weight:600;
+  display:flex; align-items:center; gap:8px;
+  opacity:0; pointer-events:none; transition:all .2s ease; z-index:30;
+  box-shadow:0 8px 24px rgba(0,0,0,.2);
+}
+[data-theme="dark"] #toast{ background:var(--accent); color:#fff; }
+#toast.show{ opacity:1; transform:translateX(-50%) translateY(0); }
+#toast svg{ width:15px; height:15px; }
+</style>
+</head>
+<body>
+
+<!-- =========================================================
+     SCREEN 1: GOOGLE SIGN-IN
+     ========================================================= -->
+<div class="screen" id="screen-signin">
+  <div class="auth-card">
+    <img src="logo-full.png" alt="Locki" class="hero-logo">
+    <p class="sub">מנהל הסיסמאות האישי שלך.<br>התחבר עם חשבון Google המורשה כדי להמשיך.</p>
+    <div id="google-signin-btn"></div>
+    <p class="denied" id="denied-msg">גישה נדחתה — חשבון זה אינו מורשה להשתמש באפליקציה.</p>
+  </div>
+</div>
+
+<!-- =========================================================
+     SCREEN 2: SET PIN (first time only)
+     ========================================================= -->
+<div class="screen hidden" id="screen-setpin">
+  <div class="auth-card">
+    <div class="auth-mark">
+      <img src="logo-icon.png" alt="Locki">
+    </div>
+    <h1 id="setpin-title">הגדרת קוד נעילה</h1>
+    <p class="sub" id="setpin-sub">בחר קוד בן 4–6 ספרות. הקוד הזה יגן על הסיסמאות שלך במכשיר הזה.</p>
+    <div class="pin-dots" id="setpin-dots"></div>
+    <div class="pin-pad" id="setpin-pad"></div>
+    <p class="pin-hint">הקוד מוצפן ונשמר רק במכשיר זה — Google לא מקבל אותו.</p>
+  </div>
+</div>
+
+<!-- =========================================================
+     SCREEN 3: ENTER PIN (returning session)
+     ========================================================= -->
+<div class="screen hidden" id="screen-unlock">
+  <div class="auth-card">
+    <div class="auth-mark">
+      <img src="logo-icon.png" alt="Locki">
+    </div>
+    <h1>הזן קוד נעילה</h1>
+    <p class="sub" id="unlock-sub">שלום, <span id="unlock-name"></span> — הזן את קוד הנעילה שלך.</p>
+    <div class="pin-dots" id="unlock-dots"></div>
+    <div class="pin-pad" id="unlock-pad"></div>
+    <p class="pin-forgot" id="forgot-pin-btn">שכחתי את הקוד ואיבדתי גישה לכספת</p>
+  </div>
+</div>
+
+<!-- =========================================================
+     MAIN APP
+     ========================================================= -->
+<div id="app">
+  <div class="topbar">
+    <div class="topbar-row">
+      <div class="brand">
+        <div class="brand-mark"><img src="logo-icon.png" alt="Locki"></div>
+        <div><h2>Locki</h2><span id="user-email-tag"></span></div>
+      </div>
+      <div class="actions-row">
+        <button class="icon-btn" id="theme-toggle" title="החלף מצב תצוגה">
+          <svg viewBox="0 0 24 24" fill="none" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3a9 9 0 109 9c0-.46-.04-.92-.1-1.36a5.4 5.4 0 01-7.54-7.54c-.44-.06-.9-.1-1.36-.1z"/></svg>
+        </button>
+        <button class="icon-btn" id="lock-btn" title="נעילה">
+          <svg viewBox="0 0 24 24" fill="none" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="11" width="18" height="11" rx="2"/><path d="M7 11V7a5 5 0 0110 0v4"/></svg>
+        </button>
+        <button class="icon-btn" id="signout-btn" title="התנתקות">
+          <svg viewBox="0 0 24 24" fill="none" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 21H5a2 2 0 01-2-2V5a2 2 0 012-2h4"/><path d="M16 17l5-5-5-5"/><path d="M21 12H9"/></svg>
+        </button>
+      </div>
+    </div>
+    <div style="display:flex; gap:10px;">
+      <div class="search-wrap" style="flex:1;">
+        <svg viewBox="0 0 24 24" fill="none" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="8"/><path d="M21 21l-4.3-4.3"/></svg>
+        <input id="search" type="text" placeholder="חיפוש לפי שירות או שם משתמש…">
+      </div>
+      <button class="add-fab" id="add-btn">
+        <svg viewBox="0 0 24 24" fill="none" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 5v14M5 12h14"/></svg>
+        חדש
+      </button>
+    </div>
+  </div>
+
+  <div class="list-wrap" id="list-wrap">
+    <!-- entries render here -->
+  </div>
+</div>
+
+<!-- =========================================================
+     ADD / EDIT MODAL
+     ========================================================= -->
+<div class="modal-overlay" id="entry-modal">
+  <div class="modal">
+    <h3 id="modal-title">רשומה חדשה</h3>
+    <input type="hidden" id="entry-id">
+    <div class="form-group">
+      <label>שם השירות / אתר</label>
+      <input type="text" id="f-service" placeholder="לדוגמה: Gmail">
+    </div>
+    <div class="form-group">
+      <label>שם משתמש / מייל</label>
+      <input type="text" id="f-username" style="direction:ltr; text-align:right;" placeholder="name@example.com">
+    </div>
+    <div class="form-group">
+      <label>סיסמה</label>
+      <div class="pw-input-wrap">
+        <input type="password" id="f-password" placeholder="••••••••">
+        <button type="button" class="pw-toggle-inline" id="f-password-eye">
+          <svg viewBox="0 0 24 24" fill="none" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M1 12s4-7 11-7 11 7 11 7-4 7-11 7-11-7-11-7z"/><circle cx="12" cy="12" r="3"/></svg>
+        </button>
+      </div>
+    </div>
+    <div class="form-group">
+      <label>קטגוריה (אופציונלי)</label>
+      <input type="text" id="f-category" placeholder="לדוגמה: עבודה, בנקאות, אישי">
+    </div>
+    <div class="form-group">
+      <label>הערות</label>
+      <textarea id="f-notes" placeholder="פרטים נוספים…"></textarea>
+    </div>
+    <div class="modal-actions">
+      <button class="btn btn-ghost" id="modal-cancel">ביטול</button>
+      <button class="btn btn-primary" id="modal-save">שמירה</button>
+    </div>
+  </div>
+</div>
+
+<div id="toast"></div>
+
+<script>
+/* =====================================================================
+   ⚙️  הגדרות שיש להזין ידנית לפני השימוש
+   ===================================================================== */
+
+// 1) מזהה הלקוח מ-Google Cloud Console (OAuth 2.0 Client ID – Web application)
+//    https://console.cloud.google.com/apis/credentials
+//    זהו מזהה ציבורי בכוונה — אין בעיה שהוא גלוי כאן.
+const GOOGLE_CLIENT_ID = "431204508277-nm33th0fs73s81cpn09ngmmalmbvgso1.apps.googleusercontent.com"; // <-- הזן כאן
+
+// 2) כתובת ה-Web App של Google Apps Script שמאמת את הטוקן בצד שרת
+//    (ר' apps-script-gatekeeper.gs / הוראות ההתקנה)
+const GATEKEEPER_URL = "https://script.google.com/macros/s/AKfycbxSNVU_NcckG1Cs6Uc5_foaLxcUuqhSiHhDTuk5t8AY2a8Wgg2rQfYcG3v_BIB8apco/exec"; // <-- הזן כאן
+
+/* =====================================================================
+   הערת אבטחה (עודכן):
+   בדיקת ה-Whitelist הועברה כולה לצד שרת (Apps Script, ר' הקובץ הנפרד
+   apps-script-gatekeeper.gs). האפליקציה שולחת את ה-ID Token הגולמי
+   שהתקבל מגוגל אל ה-Web App, וזה בודק מול שרתי גוגל (tokeninfo) שהחתימה
+   תקפה, שה-aud תואם ל-Client ID, ושה-email תואם לרשימה המורשית — כל
+   זה בלי שהמייל המורשה יופיע בקוד הלקוח בכלל. תוצאה מזויפת דורשת עכשיו
+   טוקן חתום אמיתי מגוגל, לא רק עריכת JS בדפדפן.
+   שכבת ההגנה האמיתית על הסיסמאות עצמן נשארת בלתי תלויה בבדיקה הזו:
+   ההצפנה (AES-GCM, למטה) נעולה אך ורק עם ה-PIN שלך, ולעולם לא עוברת
+   באינטרנט או נבדקת מול שרת כלשהו.
+   ===================================================================== */
+
+/* =====================================================================
+   STORAGE ADAPTER
+   שכבת אחסון מופרדת בכוונה — כרגע localStorage, בעתיד ניתן להחליף
+   ב-Google Sheets / Apps Script / Firebase רק ע"י מימוש מחדש
+   של שלוש הפונקציות הבאות (loadVaultRaw / saveVaultRaw / clearVaultRaw)
+   מבלי לשנות שום קוד אחר באפליקציה.
+   ===================================================================== */
+const StorageAdapter = {
+  VAULT_KEY: 'pm_vault_v1',
+  PIN_META_KEY: 'pm_pin_meta_v1',
+
+  loadVaultRaw(){
+    const raw = localStorage.getItem(this.VAULT_KEY);
+    return raw ? JSON.parse(raw) : null; // {salt, iv, data} כולם base64
+  },
+  saveVaultRaw(payload){
+    localStorage.setItem(this.VAULT_KEY, JSON.stringify(payload));
+  },
+  clearVaultRaw(){
+    localStorage.removeItem(this.VAULT_KEY);
+    localStorage.removeItem(this.PIN_META_KEY);
+  },
+  hasVault(){
+    return !!localStorage.getItem(this.VAULT_KEY);
+  }
+};
+
+/* =====================================================================
+   CRYPTO — הצפנת AES-GCM עם מפתח שנגזר מה-PIN (PBKDF2)
+   כל הרשומות מוצפנות יחד כ-JSON blob אחד; ה-PIN עצמו אינו נשמר בשום מקום.
+   ===================================================================== */
+const Crypto = {
+  async deriveKey(pin, saltBytes){
+    const enc = new TextEncoder();
+    const baseKey = await crypto.subtle.importKey('raw', enc.encode(pin), 'PBKDF2', false, ['deriveKey']);
+    return crypto.subtle.deriveKey(
+      { name:'PBKDF2', salt:saltBytes, iterations:150000, hash:'SHA-256' },
+      baseKey,
+      { name:'AES-GCM', length:256 },
+      false,
+      ['encrypt','decrypt']
+    );
+  },
+  b64(bytes){ return btoa(String.fromCharCode(...new Uint8Array(bytes))); },
+  unb64(str){ return Uint8Array.from(atob(str), c => c.charCodeAt(0)); },
+
+  async encryptVault(pin, entriesArray){
+    const salt = crypto.getRandomValues(new Uint8Array(16));
+    const iv = crypto.getRandomValues(new Uint8Array(12));
+    const key = await this.deriveKey(pin, salt);
+    const enc = new TextEncoder().encode(JSON.stringify(entriesArray));
+    const cipher = await crypto.subtle.encrypt({ name:'AES-GCM', iv }, key, enc);
+    return { salt:this.b64(salt), iv:this.b64(iv), data:this.b64(cipher) };
+  },
+
+  // מפענח; זורק שגיאה אם ה-PIN שגוי (GCM auth tag לא תואם)
+  async decryptVault(pin, payload){
+    const salt = this.unb64(payload.salt);
+    const iv = this.unb64(payload.iv);
+    const key = await this.deriveKey(pin, salt);
+    const cipherBytes = this.unb64(payload.data);
+    const plain = await crypto.subtle.decrypt({ name:'AES-GCM', iv }, key, cipherBytes);
+    return JSON.parse(new TextDecoder().decode(plain));
+  }
+};
+
+/* =====================================================================
+   STATE
+   ===================================================================== */
+const State = {
+  userEmail: null,
+  userName: null,
+  currentPin: null,     // מוחזק בזיכרון בלבד לאורך הסשן, לעולם לא נשמר
+  entries: [],
+  searchTerm: '',
+};
+
+/* =====================================================================
+   UTIL
+   ===================================================================== */
+const $ = (sel) => document.querySelector(sel);
+const $$ = (sel) => document.querySelectorAll(sel);
+const uid = () => 'e_' + Math.random().toString(36).slice(2,10) + Date.now().toString(36);
+
+function showToast(msg, iconSvg){
+  const t = $('#toast');
+  t.innerHTML = (iconSvg || '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6L9 17l-5-5"/></svg>') + `<span>${msg}</span>`;
+  t.classList.add('show');
+  clearTimeout(t._timer);
+  t._timer = setTimeout(() => t.classList.remove('show'), 1800);
+}
+
+function switchScreen(id){
+  ['screen-signin','screen-setpin','screen-unlock'].forEach(s => {
+    $('#' + s).classList.toggle('hidden', s !== id);
+  });
+  $('#app').classList.remove('active');
+}
+
+function showApp(){
+  ['screen-signin','screen-setpin','screen-unlock'].forEach(s => $('#' + s).classList.add('hidden'));
+  $('#app').classList.add('active');
+}
+
+/* =====================================================================
+   THEME (בהיר/כהה) — נשמר ב-localStorage, ברירת מחדל: בהיר
+   ===================================================================== */
+function initTheme(){
+  const saved = localStorage.getItem('pm_theme');
+  if (saved === 'dark') document.documentElement.setAttribute('data-theme','dark');
+}
+$('#theme-toggle').addEventListener('click', () => {
+  const isDark = document.documentElement.getAttribute('data-theme') === 'dark';
+  if (isDark){
+    document.documentElement.removeAttribute('data-theme');
+    localStorage.setItem('pm_theme','light');
+  } else {
+    document.documentElement.setAttribute('data-theme','dark');
+    localStorage.setItem('pm_theme','dark');
+  }
+});
+initTheme();
+
+/* =====================================================================
+   GOOGLE SIGN-IN
+   ===================================================================== */
+function decodeJwt(token){
+  const payload = token.split('.')[1];
+  const json = decodeURIComponent(atob(payload.replace(/-/g,'+').replace(/_/g,'/')).split('').map(
+    c => '%' + ('00' + c.charCodeAt(0).toString(16)).slice(-2)
+  ).join(''));
+  return JSON.parse(json);
+}
+
+// שולח את ה-ID Token הגולמי לאימות בצד שרת (Apps Script). התשובה היחידה
+// שנסמכים עליה היא { authorized: true/false } שמגיעה מהשרת — הפענוח
+// המקומי של ה-JWT למטה משמש רק להצגת שם/מייל בממשק, לא לקבלת ההחלטה.
+async function verifyWithGatekeeper(idToken){
+  // 'text/plain' בכוונה: שומר על הבקשה כ"simple request" כדי להימנע
+  // מ-CORS preflight (OPTIONS) שה-Apps Script Web App לא עונה עליו כברירת מחדל.
+  const res = await fetch(GATEKEEPER_URL, {
+    method: 'POST',
+    headers: { 'Content-Type': 'text/plain;charset=utf-8' },
+    body: JSON.stringify({ credential: idToken }),
+  });
+  if (!res.ok) throw new Error('gatekeeper http ' + res.status);
+  return res.json(); // { authorized: bool, reason: string, name?, email? }
+}
+
+async function handleGoogleCredential(response){
+  $('#denied-msg').classList.remove('show');
+  $('#google-signin-btn').style.opacity = '0.5';
+
+  let payloadLocal = {};
+  try { payloadLocal = decodeJwt(response.credential); } catch(_){}
+
+  try {
+    const result = await verifyWithGatekeeper(response.credential);
+
+    if (!result.authorized){
+      $('#denied-msg').textContent = 'גישה נדחתה — חשבון זה אינו מורשה להשתמש באפליקציה.';
+      $('#denied-msg').classList.add('show');
+      if (window.google?.accounts?.id) google.accounts.id.disableAutoSelect();
+      return;
+    }
+
+    const email = (result.email || payloadLocal.email || '').toLowerCase();
+    State.userEmail = email;
+    State.userName = result.name || payloadLocal.name || email;
+    sessionStorage.setItem('pm_session_email', email);
+    sessionStorage.setItem('pm_session_name', State.userName);
+    // חותמת שרת חתומה-בזמן שמונעת "השתלת" סשן מקומי בלי לעבור דרך השרת שוב
+    sessionStorage.setItem('pm_session_verified', '1');
+
+    routeAfterAuth();
+  } catch(err){
+    $('#denied-msg').textContent = 'לא ניתן היה לאמת את הכניסה מול שרת האימות. נסה שוב.';
+    $('#denied-msg').classList.add('show');
+  } finally {
+    $('#google-signin-btn').style.opacity = '1';
+  }
+}
+
+function initGoogleSignIn(){
+  if (!window.google?.accounts?.id) { setTimeout(initGoogleSignIn, 200); return; }
+  google.accounts.id.initialize({
+    client_id: GOOGLE_CLIENT_ID,
+    callback: handleGoogleCredential,
+    auto_select: true,
+  });
+  google.accounts.id.renderButton($('#google-signin-btn'), {
+    theme:'outline', size:'large', shape:'pill', text:'signin_with', locale:'iw'
+  });
+  google.accounts.id.prompt();
+}
+
+function routeAfterAuth(){
+  if (StorageAdapter.hasVault()){
+    $('#unlock-name').textContent = State.userName;
+    renderPinPad('unlock-pad', 'unlock-dots', onUnlockAttempt);
+    switchScreen('screen-unlock');
+  } else {
+    renderPinPad('setpin-pad', 'setpin-dots', onSetPinAttempt, true);
+    switchScreen('screen-setpin');
+  }
+}
+
+/* =====================================================================
+   PIN PAD (מקלדת נומרית מותאמת + נקודות התקדמות)
+   ===================================================================== */
+const PIN_LEN_MIN = 4, PIN_LEN_MAX = 6;
+let pinBuffer = '';
+let firstPinStage = null; // לשלב "אימות חוזר" בהגדרת PIN חדש
+
+function renderPinPad(padId, dotsId, onComplete, isSetup){
+  pinBuffer = '';
+  renderDots(dotsId, 0);
+  const pad = $('#' + padId);
+  pad.innerHTML = '';
+  const keys = ['1','2','3','4','5','6','7','8','9','clear','0','back'];
+  keys.forEach(k => {
+    const btn = document.createElement('button');
+    btn.className = 'pin-key' + (k === 'clear' || k === 'back' ? ' wide' : '');
+    if (k === 'clear') btn.textContent = 'נקה';
+    else if (k === 'back') btn.textContent = '⌫';
+    else btn.textContent = k;
+    btn.addEventListener('click', () => {
+      if (k === 'clear'){ pinBuffer=''; }
+      else if (k === 'back'){ pinBuffer = pinBuffer.slice(0,-1); }
+      else if (pinBuffer.length < PIN_LEN_MAX){ pinBuffer += k; }
+      renderDots(dotsId, pinBuffer.length);
+      if (pinBuffer.length >= PIN_LEN_MIN){
+        // אפשר להשלים בכל רגע מ-4 ספרות; ממתינים לרגע "אישור" קצר או ל-MAX
+      }
+      if (pinBuffer.length === PIN_LEN_MAX){
+        onComplete(pinBuffer);
+      }
+    });
+    pad.appendChild(btn);
+  });
+
+  // כפתור "אישור" מהיר ל-4/5 ספרות (לחיצה ארוכה על "clear" לא נוחה, אז נוסיף מאזין למקלדת בכלל)
+  document.onkeydown = (e) => {
+    if ($('#' + padId).closest('.screen').classList.contains('hidden')) return;
+    if (/^[0-9]$/.test(e.key) && pinBuffer.length < PIN_LEN_MAX){
+      pinBuffer += e.key; renderDots(dotsId, pinBuffer.length);
+      if (pinBuffer.length === PIN_LEN_MAX) onComplete(pinBuffer);
+    } else if (e.key === 'Backspace'){ pinBuffer = pinBuffer.slice(0,-1); renderDots(dotsId, pinBuffer.length); }
+    else if (e.key === 'Enter' && pinBuffer.length >= PIN_LEN_MIN){ onComplete(pinBuffer); }
+  };
+}
+
+function renderDots(dotsId, count){
+  const wrap = $('#' + dotsId);
+  wrap.innerHTML = '';
+  const total = Math.max(count, PIN_LEN_MIN);
+  for (let i=0;i<Math.max(total, count);i++){
+    const d = document.createElement('div');
+    d.className = 'pin-dot' + (i < count ? ' filled' : '');
+    wrap.appendChild(d);
+  }
+}
+
+function flashError(dotsId){
+  $$('#' + dotsId + ' .pin-dot').forEach(d => d.classList.add('err'));
+  setTimeout(() => {
+    pinBuffer = '';
+    renderDots(dotsId, 0);
+  }, 400);
+}
+
+async function onSetPinAttempt(pin){
+  if (firstPinStage === null){
+    firstPinStage = pin;
+    $('#setpin-title').textContent = 'אישור קוד';
+    $('#setpin-sub').textContent = 'הזן את הקוד שוב לאימות.';
+    pinBuffer = '';
+    renderDots('setpin-dots', 0);
+    return;
+  }
+  if (pin !== firstPinStage){
+    flashError('setpin-dots');
+    firstPinStage = null;
+    $('#setpin-title').textContent = 'הגדרת קוד נעילה';
+    $('#setpin-sub').textContent = 'הקודים לא תאמו. נסה שוב מההתחלה.';
+    return;
+  }
+  // יצירת כספת חדשה וריקה, מוצפנת עם ה-PIN שנבחר
+  State.currentPin = pin;
+  State.entries = [];
+  const payload = await Crypto.encryptVault(pin, State.entries);
+  StorageAdapter.saveVaultRaw(payload);
+  firstPinStage = null;
+  showApp();
+  renderEntries();
+  showToast('הכספת נוצרה בהצלחה');
+}
+
+async function onUnlockAttempt(pin){
+  const payload = StorageAdapter.loadVaultRaw();
+  try {
+    const entries = await Crypto.decryptVault(pin, payload);
+    State.currentPin = pin;
+    State.entries = entries;
+    showApp();
+    renderEntries();
+  } catch(err){
+    flashError('unlock-dots');
+  }
+}
+
+$('#forgot-pin-btn').addEventListener('click', () => {
+  if (confirm('אין דרך לשחזר סיסמאות שאבד להן ה-PIN — ההצפנה מתבססת עליו בלבד. איפוס ימחק את כל הכספת הקיימת מהמכשיר. להמשיך?')){
+    StorageAdapter.clearVaultRaw();
+    firstPinStage = null;
+    renderPinPad('setpin-pad', 'setpin-dots', onSetPinAttempt, true);
+    switchScreen('screen-setpin');
+  }
+});
+
+/* =====================================================================
+   PERSIST (הצפנה מחדש ושמירה בכל שינוי)
+   ===================================================================== */
+async function persistVault(){
+  const payload = await Crypto.encryptVault(State.currentPin, State.entries);
+  StorageAdapter.saveVaultRaw(payload);
+}
+
+/* =====================================================================
+   RENDER ENTRIES LIST
+   ===================================================================== */
+function renderEntries(){
+  const wrap = $('#list-wrap');
+  const term = State.searchTerm.trim().toLowerCase();
+  const filtered = State.entries.filter(e =>
+    !term || e.service.toLowerCase().includes(term) || (e.username||'').toLowerCase().includes(term)
+  );
+
+  if (filtered.length === 0){
+    wrap.innerHTML = `<div class="empty-state">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="11" width="18" height="11" rx="2"/><path d="M7 11V7a5 5 0 0110 0v4"/></svg>
+      <p>${State.entries.length === 0 ? 'הכספת ריקה. הוסף רשומה ראשונה.' : 'לא נמצאו תוצאות.'}</p>
+    </div>`;
+    return;
+  }
+
+  wrap.innerHTML = filtered.map(e => `
+    <div class="card" data-id="${e.id}">
+      <div class="card-top">
+        <div><span class="card-service">${escapeHtml(e.service)}</span>${e.category ? `<span class="card-cat">${escapeHtml(e.category)}</span>` : ''}</div>
+        <div class="card-menu">
+          <button class="icon-btn edit-btn" title="עריכה"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 20h9"/><path d="M16.5 3.5a2.1 2.1 0 013 3L7 19l-4 1 1-4z"/></svg></button>
+          <button class="icon-btn del-btn" title="מחיקה"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 6h18"/><path d="M8 6V4a2 2 0 012-2h4a2 2 0 012 2v2m3 0-1 14a2 2 0 01-2 2H8a2 2 0 01-2-2L5 6"/></svg></button>
+        </div>
+      </div>
+      <div class="field-row">
+        <span class="field-label">משתמש</span>
+        <span class="field-value copy-username" title="לחץ להעתקה">${escapeHtml(e.username || '—')}</span>
+      </div>
+      <div class="field-row">
+        <span class="field-label">סיסמה</span>
+        <span class="field-value pw copy-password" data-real="${escapeAttr(e.password)}" data-revealed="false" title="לחץ להעתקה">${'•'.repeat(Math.min(e.password.length || 8, 16))}</span>
+        <button class="eye-btn toggle-eye"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M1 12s4-7 11-7 11 7 11 7-4 7-11 7-11-7-11-7z"/><circle cx="12" cy="12" r="3"/></svg></button>
+      </div>
+      ${e.notes ? `<div class="card-notes">${escapeHtml(e.notes)}</div>` : ''}
+    </div>
+  `).join('');
+
+  // bind events for this render pass
+  wrap.querySelectorAll('.copy-username').forEach(el => {
+    el.addEventListener('click', () => copyToClipboard(el.textContent, 'שם המשתמש הועתק!'));
+  });
+  wrap.querySelectorAll('.copy-password').forEach(el => {
+    el.addEventListener('click', () => copyToClipboard(el.dataset.real, 'הסיסמה הועתקה!'));
+  });
+  wrap.querySelectorAll('.toggle-eye').forEach(btn => {
+    btn.addEventListener('click', (ev) => {
+      ev.stopPropagation();
+      const valEl = btn.previousElementSibling;
+      const revealed = valEl.dataset.revealed === 'true';
+      valEl.textContent = revealed ? '•'.repeat(Math.min(valEl.dataset.real.length || 8, 16)) : valEl.dataset.real;
+      valEl.dataset.revealed = (!revealed).toString();
+    });
+  });
+  wrap.querySelectorAll('.edit-btn').forEach(btn => {
+    btn.addEventListener('click', () => openModal(btn.closest('.card').dataset.id));
+  });
+  wrap.querySelectorAll('.del-btn').forEach(btn => {
+    btn.addEventListener('click', () => deleteEntry(btn.closest('.card').dataset.id));
+  });
+}
+
+function escapeHtml(str){
+  return (str||'').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+}
+function escapeAttr(str){ return escapeHtml(str); }
+
+async function copyToClipboard(text, msg){
+  try {
+    await navigator.clipboard.writeText(text);
+    showToast(msg);
+  } catch(err){
+    // fallback לדפדפנים ישנים / הרשאות חסומות
+    const ta = document.createElement('textarea');
+    ta.value = text; document.body.appendChild(ta); ta.select();
+    document.execCommand('copy'); document.body.removeChild(ta);
+    showToast(msg);
+  }
+}
+
+/* =====================================================================
+   MODAL — ADD / EDIT
+   ===================================================================== */
+function openModal(entryId){
+  const modal = $('#entry-modal');
+  const entry = entryId ? State.entries.find(e => e.id === entryId) : null;
+  $('#modal-title').textContent = entry ? 'עריכת רשומה' : 'רשומה חדשה';
+  $('#entry-id').value = entry ? entry.id : '';
+  $('#f-service').value = entry ? entry.service : '';
+  $('#f-username').value = entry ? entry.username : '';
+  $('#f-password').value = entry ? entry.password : '';
+  $('#f-password').type = 'password';
+  $('#f-category').value = entry ? (entry.category || '') : '';
+  $('#f-notes').value = entry ? (entry.notes || '') : '';
+  modal.classList.add('show');
+  setTimeout(() => $('#f-service').focus(), 100);
+}
+function closeModal(){ $('#entry-modal').classList.remove('show'); }
+
+$('#add-btn').addEventListener('click', () => openModal(null));
+$('#modal-cancel').addEventListener('click', closeModal);
+$('#entry-modal').addEventListener('click', (e) => { if (e.target === e.currentTarget) closeModal(); });
+
+$('#f-password-eye').addEventListener('click', () => {
+  const inp = $('#f-password');
+  inp.type = inp.type === 'password' ? 'text' : 'password';
+});
+
+$('#modal-save').addEventListener('click', async () => {
+  const service = $('#f-service').value.trim();
+  const username = $('#f-username').value.trim();
+  const password = $('#f-password').value;
+  if (!service || !password){
+    showToast('יש למלא שם שירות וסיסמה');
+    return;
+  }
+  const id = $('#entry-id').value;
+  const category = $('#f-category').value.trim();
+  const notes = $('#f-notes').value.trim();
+
+  if (id){
+    const idx = State.entries.findIndex(e => e.id === id);
+    if (idx > -1) State.entries[idx] = { ...State.entries[idx], service, username, password, category, notes };
+  } else {
+    State.entries.unshift({ id: uid(), service, username, password, category, notes, createdAt: Date.now() });
+  }
+  await persistVault();
+  closeModal();
+  renderEntries();
+  showToast(id ? 'הרשומה עודכנה' : 'הרשומה נוספה');
+});
+
+async function deleteEntry(id){
+  if (!confirm('למחוק רשומה זו? הפעולה אינה הפיכה.')) return;
+  State.entries = State.entries.filter(e => e.id !== id);
+  await persistVault();
+  renderEntries();
+  showToast('הרשומה נמחקה');
+}
+
+/* =====================================================================
+   SEARCH
+   ===================================================================== */
+$('#search').addEventListener('input', (e) => {
+  State.searchTerm = e.target.value;
+  renderEntries();
+});
+
+/* =====================================================================
+   LOCK / SIGN OUT
+   ===================================================================== */
+$('#lock-btn').addEventListener('click', () => {
+  State.currentPin = null;
+  State.entries = [];
+  $('#unlock-name').textContent = State.userName || '';
+  renderPinPad('unlock-pad', 'unlock-dots', onUnlockAttempt);
+  switchScreen('screen-unlock');
+});
+
+$('#signout-btn').addEventListener('click', () => {
+  if (window.google?.accounts?.id) google.accounts.id.disableAutoSelect();
+  sessionStorage.removeItem('pm_session_email');
+  sessionStorage.removeItem('pm_session_name');
+  sessionStorage.removeItem('pm_session_verified');
+  State.currentPin = null;
+  State.entries = [];
+  State.userEmail = null;
+  switchScreen('screen-signin');
+});
+
+/* =====================================================================
+   BOOT
+   ===================================================================== */
+$('#user-email-tag').textContent = '';
+
+function boot(){
+  // משוחזר בלי לפנות שוב לגוגל/לשרת רק אם הסשן הזה כבר עבר אימות שרת
+  // בהצלחה (pm_session_verified) — ה-sessionStorage מתאפס עם סגירת
+  // הטאב, כך שכניסה חדשה תמיד עוברת שוב דרך ה-Gatekeeper.
+  const savedEmail = sessionStorage.getItem('pm_session_email');
+  const savedName = sessionStorage.getItem('pm_session_name');
+  const verified = sessionStorage.getItem('pm_session_verified') === '1';
+  if (savedEmail && verified){
+    State.userEmail = savedEmail;
+    State.userName = savedName;
+    $('#user-email-tag').textContent = savedEmail;
+    routeAfterAuth();
+  } else {
+    initGoogleSignIn();
+  }
+}
+window.addEventListener('DOMContentLoaded', boot);
+if (document.readyState !== 'loading') boot();
+
+/* =====================================================================
+   SERVICE WORKER REGISTRATION (PWA)
+   שים לב: יעבוד רק בהגשה מ-HTTPS או מ-localhost, ורק אם sw.js
+   ו-manifest.json נמצאים באותה תיקייה כמו קובץ זה.
+   ===================================================================== */
+if ('serviceWorker' in navigator){
+  window.addEventListener('load', () => {
+    navigator.serviceWorker.register('sw.js').catch(() => {
+      // כשל שקט אם sw.js לא זמין (למשל בפתיחה מקומית מ-file://)
+    });
+  });
+}
+</script>
+</body>
+</html>
