@@ -615,14 +615,19 @@ async function handleGoogleCredential(response){
     }
 
     const email = (result.email || payloadLocal.email || '').toLowerCase();
-    State.userEmail = email;
-    State.userName = result.name || payloadLocal.name || email;
     sessionStorage.setItem('pm_session_email', email);
-    sessionStorage.setItem('pm_session_name', State.userName);
+    sessionStorage.setItem('pm_session_name', result.name || payloadLocal.name || email);
     // חותמת שרת חתומה-בזמן שמונעת "השתלת" סשן מקומי בלי לעבור דרך השרת שוב
     sessionStorage.setItem('pm_session_verified', '1');
 
-    routeAfterAuth();
+    // בכוונה טוענים מחדש את הדף (ולא רק מחליפים מסך ב-JS): בחלק
+    // מהדפדפנים/WebView הניידים, מסך הבחירה של גוגל (FedCM/One Tap)
+    // משאיר את הדף "לא מצויר מחדש" אחרי שהוא נסגר, למרות שה-JS עצמו
+    // רץ תקין — בדיוק התופעה שדרשה גרירה/רענון ידני. הרענון האוטומטי
+    // כאן פותר את זה: ה-boot() בטעינה יזהה את pm_session_verified
+    // ויקפוץ ישר למסך ה-PIN בלי לעבור שוב דרך גוגל.
+    location.reload();
+    return;
   } catch(err){
     $('#denied-msg').textContent = 'לא ניתן היה לאמת את הכניסה מול שרת האימות. נסה שוב.';
     $('#denied-msg').classList.add('show');
