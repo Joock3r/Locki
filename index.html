@@ -428,7 +428,7 @@ const GOOGLE_CLIENT_ID = "431204508277-nm33th0fs73s81cpn09ngmmalmbvgso1.apps.goo
 
 // 2) כתובת ה-Web App של Google Apps Script שמאמת את הטוקן בצד שרת
 //    (ר' apps-script-gatekeeper.gs / הוראות ההתקנה)
-const GATEKEEPER_URL = "https://script.google.com/macros/s/AKfycbxSNVU_NcckG1Cs6Uc5_foaLxcUuqhSiHhDTuk5t8AY2a8Wgg2rQfYcG3v_BIB8apco/exec"; // <-- הזן כאן
+const GATEKEEPER_URL = "https://script.google.com/macros/s/AKfycbxSNVU_NcckG1Cs6Uc5_foaLxcUuqhSiHhDTuk5t8AY2a8Wgg2rQfYcG3v_BIB8apco/exec"; // <-- הזן כאןהזן כאן
 
 /* =====================================================================
    הערת אבטחה (עודכן):
@@ -615,10 +615,10 @@ async function handleGoogleCredential(response){
     }
 
     const email = (result.email || payloadLocal.email || '').toLowerCase();
-    sessionStorage.setItem('pm_session_email', email);
-    sessionStorage.setItem('pm_session_name', result.name || payloadLocal.name || email);
+    localStorage.setItem('pm_session_email', email);
+    localStorage.setItem('pm_session_name', result.name || payloadLocal.name || email);
     // חותמת שרת חתומה-בזמן שמונעת "השתלת" סשן מקומי בלי לעבור דרך השרת שוב
-    sessionStorage.setItem('pm_session_verified', '1');
+    localStorage.setItem('pm_session_verified', '1');
 
     // בכוונה טוענים מחדש את הדף (ולא רק מחליפים מסך ב-JS): בחלק
     // מהדפדפנים/WebView הניידים, מסך הבחירה של גוגל (FedCM/One Tap)
@@ -1000,9 +1000,9 @@ $('#lock-btn').addEventListener('click', () => {
 
 $('#signout-btn').addEventListener('click', () => {
   if (window.google?.accounts?.id) google.accounts.id.disableAutoSelect();
-  sessionStorage.removeItem('pm_session_email');
-  sessionStorage.removeItem('pm_session_name');
-  sessionStorage.removeItem('pm_session_verified');
+  localStorage.removeItem('pm_session_email');
+  localStorage.removeItem('pm_session_name');
+  localStorage.removeItem('pm_session_verified');
   State.currentPin = null;
   State.entries = [];
   State.userEmail = null;
@@ -1015,12 +1015,15 @@ $('#signout-btn').addEventListener('click', () => {
 $('#user-email-tag').textContent = '';
 
 function boot(){
-  // משוחזר בלי לפנות שוב לגוגל/לשרת רק אם הסשן הזה כבר עבר אימות שרת
-  // בהצלחה (pm_session_verified) — ה-sessionStorage מתאפס עם סגירת
-  // הטאב, כך שכניסה חדשה תמיד עוברת שוב דרך ה-Gatekeeper.
-  const savedEmail = sessionStorage.getItem('pm_session_email');
-  const savedName = sessionStorage.getItem('pm_session_name');
-  const verified = sessionStorage.getItem('pm_session_verified') === '1';
+  // ה-"התחברות לגוגל" נשמרת ב-localStorage (לא sessionStorage), כך שהיא
+  // שורדת סגירה מלאה של האפליקציה — אין צורך להתחבר לגוגל בכל הפעלה.
+  // ה-PIN, לעומת זאת, נשאר תמיד רק בזיכרון (State.currentPin) ולעולם
+  // לא נשמר בשום מקום — כך ש-routeAfterAuth() תמיד מוביל למסך ה-PIN
+  // בכל הפעלה חדשה, גם כשהחיבור לגוגל דולג. יציאה מפורשת (#signout-btn)
+  // מוחקת את הדגל הזה ומחזירה להתחברות דרך גוגל בפעם הבאה.
+  const savedEmail = localStorage.getItem('pm_session_email');
+  const savedName = localStorage.getItem('pm_session_name');
+  const verified = localStorage.getItem('pm_session_verified') === '1';
   if (savedEmail && verified){
     State.userEmail = savedEmail;
     State.userName = savedName;
