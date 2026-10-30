@@ -1,10 +1,16 @@
 // Service Worker בסיסי לכספת — מאפשר התקנה כ-PWA ועבודה אופליין בסיסית.
 // כל הנתונים עצמם (הכספת המוצפנת) חיים ב-localStorage של הדפדפן ולא כאן.
 
-const CACHE_NAME = 'kaspa-vault-cache-v1';
+const CACHE_NAME = 'kaspa-vault-cache-v3';
 const ASSETS_TO_CACHE = [
   './index.html',
   './manifest.json',
+  './logo-full.png',
+  './logo-icon.png',
+  './favicon-32.png',
+  './apple-touch-icon.png',
+  './icon-192.png',
+  './icon-512.png',
 ];
 
 self.addEventListener('install', (event) => {
@@ -17,7 +23,7 @@ self.addEventListener('install', (event) => {
 self.addEventListener('activate', (event) => {
   event.waitUntil(
     caches.keys().then((keys) =>
-      Promise.all(keys.filter((k) => k !== CACHE_NAME).map((k) => caches.delete(k)))
+      Promise.all(keys.filter((k) => k.startsWith('kaspa-vault-cache-') && k !== CACHE_NAME).map((k) => caches.delete(k)))
     )
   );
   self.clients.claim();
@@ -30,7 +36,7 @@ self.addEventListener('fetch', (event) => {
   event.respondWith(
     caches.match(event.request).then((cached) => {
       if (cached) return cached;
-      return fetch(event.request).catch(() => cached);
+      return fetch(event.request);
     })
   );
 });
