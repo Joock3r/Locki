@@ -1,7 +1,7 @@
 // Service Worker בסיסי לכספת — מאפשר התקנה כ-PWA ועבודה אופליין בסיסית.
 // כל הנתונים עצמם (הכספת המוצפנת) חיים ב-localStorage של הדפדפן ולא כאן.
 
-const CACHE_NAME = 'kaspa-vault-cache-v3';
+const CACHE_NAME = 'kaspa-vault-cache-v4';
 const ASSETS_TO_CACHE = [
   './index.html',
   './manifest.json',

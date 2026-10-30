@@ -2,7 +2,7 @@
 <html lang="he" dir="rtl">
 <head>
 <meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="viewport" content="width=device-width, initial-scale=1, minimum-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover">
 
 <!-- ===================== PWA META TAGS ===================== -->
 <meta name="theme-color" content="#176B55">
@@ -56,7 +56,9 @@
 }
 
 *{ box-sizing:border-box; }
-html,body{ margin:0; padding:0; }
+html,body{ margin:0; padding:0; width:100%; max-width:100%; overflow-x:hidden; overscroll-behavior-x:none; }
+/* Clip horizontal overflow without creating a scroll container around sticky elements. */
+@supports (overflow:clip){ html,body{ overflow-x:clip; } }
 body{
   background:var(--bg);
   color:var(--text);
@@ -321,7 +323,7 @@ button:disabled{ opacity:.55; cursor:wait; }
   .sidebar{ position:static; height:auto; padding:18px 20px 12px; border-inline-end:0; border-bottom:1px solid var(--border); gap:18px; }
   .sidebar .brand{ padding:0; }
   .nav-label,.sidebar-note{ display:none; }
-  .category-nav{ flex-direction:row; overflow-x:auto; padding-bottom:6px; }
+  .category-nav{ flex-direction:row; overflow-x:auto; overscroll-behavior-x:contain; padding-bottom:6px; }
   .nav-item{ width:auto; flex-shrink:0; padding:10px 12px; }
   .nav-item .nav-name{ max-width:160px; }
   .topbar{ padding:14px 20px; }
@@ -351,6 +353,12 @@ button:disabled{ opacity:.55; cursor:wait; }
   .page-heading{ flex-direction:column; }
   .page-heading p{ max-width:none; }
   .overview-item{ padding:14px 9px; }
+}
+@media(max-width:760px), (pointer:coarse){
+  .form-group input,.form-group textarea,#search{ font-size:16px; }
+}
+@media(pointer:coarse){
+  html,body{ touch-action:pan-x pan-y; }
 }
 @media(prefers-reduced-motion:reduce){ *,*::before,*::after{ transition:none !important; scroll-behavior:auto !important; } }
 </style>
@@ -714,6 +722,14 @@ const State = {
 const $ = (sel) => document.querySelector(sel);
 const $$ = (sel) => document.querySelectorAll(sel);
 const uid = () => 'e_' + Math.random().toString(36).slice(2,10) + Date.now().toString(36);
+
+// Safari exposes pinch gestures separately from Pointer Events.
+const mobileTouch = window.matchMedia('(pointer:coarse)');
+['gesturestart','gesturechange'].forEach(eventName => {
+  document.addEventListener(eventName, event => {
+    if (mobileTouch.matches) event.preventDefault();
+  }, { passive:false });
+});
 
 function showToast(msg, iconSvg){
   const t = $('#toast');
@@ -1194,6 +1210,7 @@ function openModal(entryId){
   $('#f-notes').value = entry ? (entry.notes || '') : '';
   modal.classList.add('show');
   $('#app').inert = true;
+  document.documentElement.style.overflowY = 'hidden';
   document.body.style.overflow = 'hidden';
   $('#f-service').focus();
 }
@@ -1201,6 +1218,7 @@ function closeModal(){
   if (savingEntry) return;
   $('#entry-modal').classList.remove('show');
   $('#app').inert = false;
+  document.documentElement.style.overflowY = '';
   document.body.style.overflow = '';
   $('#entry-modal').querySelectorAll('input,textarea').forEach(input => input.value = '');
   if (modalTrigger?.isConnected) modalTrigger.focus();
